@@ -1,6 +1,8 @@
 #!/bin/bash
 
-model_dir=runs
+# Run through full validation-evaluation -pipeline
+
+model_dir=test_runs
 models=$( cd $model_dir && echo */ ) 
 mosaic_path=dataset/rgb_mosaics
 annotation_path=dataset/masks
@@ -9,12 +11,12 @@ mkdir $result_dir
 test_tiles=("34VEN" "34VER")
 
 for model in ${models[@]}; do
-
     # Collate validation metrics and find the optimal confidence based on validation F1
     echo Validating $model
     python scripts/get_val_metrics.py \
            $model_dir/$model \
-           yolo_dataset/fold_1.yaml
+           yolo_dataset/fold_1.yaml \
+           --half
 
     conf=$( awk -F',' 'NR==2 {print $7}' $model_dir/$model/val_results_best.csv )
     echo Processing $model, using confidence threshold of $conf
@@ -45,7 +47,7 @@ for model in ${models[@]}; do
     echo Clipping 34VEN preds to relevant area
     for pred in ${preds_to_clip[@]}; do
         tempfile=$result_dir/$model/34VEN/temp.geojson
-        ogr2ogr -clipsrc $mosaic_path/ven_area.geojson \
+        ogr2ogr -clipsrc dataset/ven_area.geojson \
             $tempfile \
             $result_dir/$model/34VEN/$pred
         mv $tempfile $result_dir/$model/34VEN/$pred
@@ -63,6 +65,72 @@ for model in ${models[@]}; do
            $result_dir/$model/ \
            $model_dir/$model/ \
            --conf_thr 0.001 --filter_preds
+done
+
+# end2end process for yolo26
+
+echo Starting end2end predictions 
+yolo26_models=$( cd $model_dir && echo *yolo26* ) 
+
+for model in ${yolo26_models[@]}; do
+    # Collate validation metrics and find the optimal confidence based on validation F1
+    echo Validating $model
+    python scripts/get_val_metrics.py \
+           $model_dir/$model \
+           yolo_dataset/fold_1.yaml \
+           --half \
+           --end2end
+
+    conf=$( awk -F',' 'NR==2 {print $7}' $model_dir/$model/val_results_best_end2end.csv )
+    echo Processing $model, using confidence threshold of $conf and end2end predictions
+    mkdir $result_dir/${model}_end2end
+    for tile in ${test_tiles[@]}; do
+        echo Processing tile $tile
+        mkdir $result_dir/${model}_end2end/$tile
+        mosaics=$(ls $mosaic_path/$tile/*.tif)
+        for mosaic in ${mosaics[@]}; do
+            echo Processing tile $mosaic
+            python scripts/predict_tile.py \
+                $model_dir/$model/weights/best.pt \
+                $mosaic \
+                $result_dir/${model}_end2end/$tile \
+                --use_cuda \
+                --conf $conf \
+                --postproc \
+                --preset $tile \
+                --image_size 640 \
+                --slice_size 320 \
+                --keep_fps \
+                --half \
+                --end2end
+        done
+    done
+
+    # Clip 34VEN predictions
+    preds_to_clip=$(ls $result_dir/$model/34VEN/)
+    echo Clipping 34VEN preds to relevant area
+    for pred in ${preds_to_clip[@]}; do
+        tempfile=$result_dir/${model}_end2end/34VEN/temp.geojson
+        ogr2ogr -clipsrc dataset/ven_area.geojson \
+            $tempfile \
+            $result_dir/${model}_end2end/34VEN/$pred
+        mv $tempfile $result_dir/${model}_end2end/34VEN/$pred
+    done
+
+    echo Evaluating $model
+    python scripts/evaluate.py \
+           $annotation_path \
+           $result_dir/${model}_end2end/ \
+           $model_dir/$model/ \
+           --conf_thr 0.001 \
+           --end2end
+
+    python scripts/evaluate.py \
+           $annotation_path \
+           $result_dir/${model}_end2end/ \
+           $model_dir/$model/ \
+           --conf_thr 0.001 --filter_preds \
+           --end2end
 done
 
 # Make collated test and validation reports
