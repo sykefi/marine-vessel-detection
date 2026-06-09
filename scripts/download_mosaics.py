@@ -42,7 +42,7 @@ def make_mosaic(input, outfile):
     prof.update(
         count=3,
         dtype='uint8',
-        driver='GTiff', 
+        driver='COG', 
         compress='lzw',
         predictor=2,
         BIGTIFF='YES'

@@ -69,6 +69,7 @@ def evaluate(
     conf_thr:float=0.25, # Which confidence threshold to use
     filter_preds:bool=False, # Whether to post-process predictions before evaluating
     ann_type:str='box', # What is the annotation type?
+    end2end:bool=False, # Are the predictions one2many or one2one
 ):
     """Evaluate detections using the vessel dataset as ground truth. Use the implementations for the metrics from 
     ultralytics, as they differ a bit with pycocotools ones. This way the definitions are consistent with 
@@ -79,7 +80,6 @@ def evaluate(
     ious = np.linspace(0.5, 0.95, 10)
 
     tiles = [f for f in os.listdir(result_dir) if os.path.isdir(result_dir/f)]
-
     # Evaluate each individual tile separately
     for t in tiles:
         tsteps = fiona.listlayers(ground_truth_path/f'{t.split(".")[0]}.gpkg')
@@ -101,7 +101,7 @@ def evaluate(
                         targs['geometry'] = targs.geometry.minimum_rotated_rectangle()
                 preds = gpd.read_file(result_dir/t/f'{matching_res}')
                 if filter_preds:
-                    preds = preds[preds['id'] == 'boat'].reset_index(drop=True)
+                    preds = preds[preds['class_name'] == 'boat'].reset_index(drop=True)
                 preds = preds[preds.score >= conf_thr]
                 tp, fp, fn = get_tp_fp_fn(preds, targs, i)
                 if tps_df is None: tps_df = tp
@@ -145,6 +145,8 @@ def evaluate(
                 outfn = f'{t}_{tstep}_filtered.json'
             else:
                 outfn = f'{t}_{tstep}.json'
+            if end2end:
+                outfn = outfn.replace('.json', '_end2end.json')
             with open(outpath/outfn, 'w') as dest:
                 json.dump(outdict, dest, sort_keys=True, indent=4)
 
@@ -235,6 +237,8 @@ def evaluate(
         outfn = 'all_results_filtered.json'
     else:
         outfn = 'all_results.json'
+    if end2end:
+        outfn = outfn.replace('.json', '_end2end.json')
     with open(outpath/outfn, 'w') as dest:
         json.dump(outdict, dest, sort_keys=True, indent=4)
 

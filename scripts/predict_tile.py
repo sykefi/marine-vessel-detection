@@ -68,7 +68,7 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
     gdf.set_geometry('centroids', inplace=True)
     joined = gdf.sjoin(waters, how='inner', predicate='within')[['label', 'score', 'geometry', 'centroids']]
     fps = gdf[~gdf.index.isin(joined.index)].copy()
-    fps['id'] = 'land'
+    fps['class_name'] = 'land'
     gdf = gdf[gdf.index.isin(joined.index)]
     n_land = rem - len(gdf)
     rem = len(gdf)
@@ -81,10 +81,10 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
         joined = gpd.sjoin(gdf, rocks, predicate='within', how='inner')
         if fps is None:
             fps = gdf[gdf.index.isin(joined.index)].copy()
-            fps['id'] = 'rock'
+            fps['class_name'] = 'rock'
         else:
             temp = gdf[gdf.index.isin(joined.index)].copy()
-            temp['id'] = 'rock'
+            temp['class_name'] = 'rock'
             fps = pd.concat([fps,temp])
         gdf = gdf[~gdf.index.isin(joined.index)].copy()
         n_vesikivikko = rem - len(gdf)
@@ -98,10 +98,10 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
             joined = gpd.sjoin(gdf, fisheries, predicate='within', how='inner')
             if fps is None:
                 fps = gdf[gdf.index.isin(joined.index)].copy()
-                fps['id'] = 'fishery'
+                fps['class_name'] = 'fishery'
             else:
                 temp = gdf[gdf.index.isin(joined.index)].copy()
-                temp['id'] = 'fishery'
+                temp['class_name'] = 'fishery'
                 fps = pd.concat([fps, temp])
             gdf = gdf[~gdf.index.isin(joined.index)]
             n_fisheries = rem - len(gdf)
@@ -111,10 +111,10 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
 
     # Revert geometry to bounding boxes and drop unnecessary columns
     gdf.set_geometry('geometry', inplace=True)
-    gdf = gdf[['id', 'label', 'score', 'geometry']]
+    gdf = gdf[['class_name', 'label', 'score', 'geometry']]
     if fps is not None:
         fps.set_geometry('geometry', inplace=True)
-        fps = fps[['label', 'score', 'geometry', 'id']]
+        fps = fps[['label', 'score', 'geometry', 'class_name']]
     # Filter above water rocks
     if rem > 0:
         print('Removing predictions that are rocks above waterline')
@@ -122,10 +122,10 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
         above_water_rocks = above_water_rocks[above_water_rocks.kohdeluokka.isin([38511,38512,38513])]
         if fps is None:
             fps = gdf.loc[(any(g.contains(above_water_rocks.geometry)) for g in gdf.geometry)].copy()
-            fps['id'] = 'rocks'
+            fps['class_name'] = 'rocks'
         else:
             temp = gdf.loc[(any(g.contains(above_water_rocks.geometry)) for g in gdf.geometry)].copy()
-            temp['id'] = 'rocks'
+            temp['class_name'] = 'rocks'
             fps = pd.concat([fps, temp])
         gdf = gdf.loc[(not any(g.contains(above_water_rocks.geometry)) for g in gdf.geometry)]
 
@@ -142,10 +142,10 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
         beacons = beacons[beacons.ty_jnr.isin([1,2,3,4,5,8])]
         if fps is None:
             fps = gdf.loc[(any(g.contains(beacons.geometry)) for g in gdf.geometry)].copy()
-            fps['id'] = 'beacon'
+            fps['class_name'] = 'beacon'
         else:
             temp = gdf.loc[(any(g.contains(beacons.geometry)) for g in gdf.geometry)].copy()
-            temp['id'] = 'beacon'
+            temp['class_name'] = 'beacon'
             fps = pd.concat([fps, temp])
         gdf = gdf.loc[(not any(g.contains(beacons.geometry)) for g in gdf.geometry)]
         n_beacons = rem - len(gdf)
@@ -157,10 +157,10 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
         windmills = gpd.read_file(PATH_TO_BUILDINGS, layer='tuulivoimala', bbox=tot_bounds_3067).to_crs(gdf.crs)
         if fps is None:
             fps = gdf.loc[(any(g.contains(windmills.geometry)) for g in gdf.geometry)].copy()
-            fps['id'] = 'windmill'
+            fps['class_name'] = 'windmill'
         else:
             temp = gdf.loc[(any(g.contains(windmills.geometry)) for g in gdf.geometry)].copy()
-            temp['id'] = 'windmill'
+            temp['class_name'] = 'windmill'
             fps = pd.concat([fps, temp])
         gdf = gdf.loc[(not any(g.contains(windmills.geometry)) for g in gdf.geometry)]
         n_turbines = rem - len(gdf)
@@ -172,10 +172,10 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
         gdf['max_edge'] = gdf.geometry.apply(get_longer_edge)
         if fps is None:
             fps = gdf[gdf['max_edge'] > 750].copy()
-            fps['id'] = 'size'
+            fps['class_name'] = 'size'
         else:
             temp = gdf[gdf['max_edge'] > 750].copy()
-            temp['id'] = 'size'
+            temp['class_name'] = 'size'
             fps = pd.concat([fps, temp])
         gdf = gdf[gdf['max_edge'] <= 750]
         n_too_large = rem -len(gdf)
@@ -193,7 +193,7 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
     """)
 
     if keep_fps:
-        fps = fps[['id', 'label', 'score', 'geometry']]
+        fps = fps[['class_name', 'label', 'score', 'geometry']]
         gdf = pd.concat([gdf, fps])
     return gdf
 
@@ -206,6 +206,7 @@ def main(yolo_weights:str, # Path to ultralytics model weights to use
          half:bool, # Whether to use half-precision 
          postproc:bool, # Whether to clean the predictions or not
          keep_fps:bool, # Whether to keep the cleaned fps in the results
+         end2end:bool, # Whether to use end2end pipeline with models that support it
          image_size:int=640, # Image size for ultralytics model
          slice_size:int=320, # Slice size to use with sahi
          conf_th:float=0.001, # Confidence threshold for predictions
@@ -227,8 +228,9 @@ def main(yolo_weights:str, # Path to ultralytics model weights to use
     det_model.model.overrides.update({
         'augment': use_tta,
         'half': half,
-        'conf': conf_th
-    })
+        'conf': conf_th,
+        'end2end': end2end
+   })
 
     # TODO Clean clouds from images. Either mask them out before predictions or do it afterwards. Shouldn't matter that much?
 
@@ -263,6 +265,6 @@ def main(yolo_weights:str, # Path to ultralytics model weights to use
 
     if postproc: 
         tfmd_gdf = clean_stationary_targets(tfmd_gdf, preset=preset,keep_fps=keep_fps)
-
-    print(f'{len(tfmd_gdf)} objects remain.')
+        print(f'{len(tfmd_gdf[tfmd_gdf.class_name == 'boat'])} valid objects remain.\n')
+        
     tfmd_gdf.to_file(outpath/f'{tile_fn}.geojson', driver='GeoJSON')

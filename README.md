@@ -1,6 +1,8 @@
 # Detecting marine vessels from Sentinel-2 images with YOLO models
 
-Identifying where maritime activities take place, and quantifying their potential impact on marine biodiversity, is important for sustainable management of marine areas, spatial planning and marine conservation. Detection and monitoring of small vessels, such as pleasure crafts, has been challenging due to limited data availability with adequate temporal and spatial resolution. This repository contains an approach to quantify maritime traffic with YOLO object detection models.
+Identifying where maritime activities take place, and quantifying their potential impact on marine biodiversity, is important for sustainable management of marine areas, spatial planning and marine conservation. Detection and monitoring of small vessels, such as pleasure crafts, has been challenging due to limited data availability with adequate temporal and spatial resolution. This repository contains an approach to quantify maritime traffic with YOLO object detection models from Sentinel-2 data.
+
+The outputs are used to estimate and identify the trends, changes and hotspots for maritime traffic in the Finnish coast. The produced marine traffic detections can not be used to identify individual marine vessels.
 
 ## Installation
 
@@ -68,9 +70,24 @@ As tiles 34VEM and 34VEN have around 20km overlap with each other, the overlappi
 
 ### Pretrained models
 
-Model checkpoints are available on 🤗 as soon as the training and evaluation is complete.
+Model checkpoints are available on 🤗: [https://huggingface.co/mayrajeo/marine-vessel-detection](https://huggingface.co/mayrajeo/marine-vessel-detection).
 
-The models are trained using Sentinel-2 L1C True-color images, processed with processing baseline `N0500` or newer.
+The models are trained using Sentinel-2 L1C True-color images, processed with processing baseline `N0500` or newer. The conversion to True color images is done with the following code
+
+```python
+RADIO_ADD_OFFSET = -1000 # Radiometric offset for baselines 0400 and later
+SATURATION_VALUE = 3558 # Currently Sentiwiki states saturation value to be 4563 for L1C-TCI
+# Which is pretty much SATURATION_VALUE - RADIO_ADD_OFFSET
+
+with rio.open(data_10m, 'r') as src:
+    B04 = (src.read(1).astype(int) + RADIO_ADD_OFFSET)/(SATURATION_VALUE+RADIO_ADD_OFFSET)
+    B03 = (src.read(2).astype(int) + RADIO_ADD_OFFSET)/(SATURATION_VALUE+RADIO_ADD_OFFSET)
+    B02 = (src.read(3).astype(int) + RADIO_ADD_OFFSET)/(SATURATION_VALUE+RADIO_ADD_OFFSET)
+
+r = np.clip(255*B04, 0, 255).astype(np.uint8)
+g = np.clip(255*B03, 0, 255).astype(np.uint8)
+b = np.clip(255*B02, 0, 255).astype(np.uint8)
+```
 
 ## Pipeline 
 
@@ -143,6 +160,8 @@ keywords = {Marine vessel detection, Object detection, Satellite imagery, Deep l
 
 ## Acknowledgments
 
-This project was supported by Enhancing the marine and coastal biodiversity of the Baltic Sea in Finland and promoting the sustainable use of marine resources (LIFE-IP BIODIVERSEA (LIFE20 IPE/FI/000020)).
+This project was supported by Enhancing the marine and coastal biodiversity of the Baltic Sea in Finland and promoting the sustainable use of marine resources (LIFE-IP BIODIVERSEA (LIFE20 IPE/FI/000020)). The project has received funding from the Life Programme of the European Union. The Material reflects the views by the Authors, and the European Commission or the CINEA is not responsible for any use that may be made of the information it contains. 
+
+![](images/biodiversea.png)
 
 The authors wish to acknowledge CSC – IT Center for Science, Finland, for computational resources.
