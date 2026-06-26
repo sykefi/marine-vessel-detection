@@ -1,0 +1,38 @@
+project:
+  type: website
+  output-dir: _docs
+  preview: 
+    port: 3000
+    browser: false
+  render:
+    - index.ipynb
+    - data.ipynb
+    - inference.ipynb
+format:
+  html:
+    theme: style/syke.scss
+    toc: true
+    page-layout: full
+    
+website:
+  title: "Detecting marine vessels from Sentinel-2 images with ultralytics"
+  description: "Detecting marine vessels from Sentinel-2 images with ultralytics"
+  open-graph: true
+  reader-mode: true
+  repo-branch: main
+  repo-subdir: nbs
+  repo-url: https://github.com/sykefi/marine-vessel-detection
+  repo-actions: [source]
+  navbar:
+    background: primary
+    search: true
+    right:
+      - icon: github
+        href: https://github.com/sykefi/marine-vessel-detection
+  sidebar:
+    style: "floating"
+    contents:
+      - index.ipynb
+      - data.ipynb
+      - inference.ipynb
+  page-navigation: true

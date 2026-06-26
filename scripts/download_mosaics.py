@@ -1,5 +1,4 @@
 from cdse_odata import FileDownloader
-from multiprocessing import Pool
 import os
 from fastcore.script import *
 from shutil import rmtree
@@ -8,6 +7,9 @@ import time
 from omnicloudmask import predict_from_load_func, load_s2
 from pathlib import Path
 import torch
+
+from joblib import delayed
+from tqdm_joblib import ParallelPbar
 
 import numpy as np
 import glob
@@ -20,7 +22,6 @@ def make_mosaic(input, outfile):
 
     xmlroot = glob.glob(os.path.join(input, 'MTD_MSIL1C.xml'))[0]
 
-    print('Reading data')
     with rio.open(xmlroot, 'r') as src:
         data_10m = src.subdatasets[0]
 
@@ -48,7 +49,6 @@ def make_mosaic(input, outfile):
         BIGTIFF='YES'
     )
 
-    print('Writing data')
     with rio.open(outfile, 'w', **prof) as dst:
         dst.write(np.stack([r, g, b]))
 
@@ -114,6 +114,8 @@ def download_and_convert(
              make_cloud_masks,
              cloudmask_outpath) 
             for product_name, downloader in zip(lines, cycle(downloaders))]
+    
     print(f'{len(inps)} products to download')
-    with Pool(4) as pool:
-        pool.starmap(run_chain, inps)
+    ParallelPbar('Downloading data...')(n_jobs=4, backend='loky')(
+        delayed(run_chain)(*inp) for inp in inps
+    )

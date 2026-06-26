@@ -37,6 +37,7 @@ def main(tile_id:str, # Tile id to query, for example 34VEM
             else: # for some reason there are duplicates, add all of them
                 final_products.extend(matches)
 
+            
     with open(f'{outpath}/{tile_id}_tileids.txt', 'w') as f:
         for p in final_products: 
             print(p, file=f)

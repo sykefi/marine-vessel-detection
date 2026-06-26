@@ -76,16 +76,16 @@ class FileDownloader:
         headers = {'Authorization': f'Bearer {self.token}'}
         url = f'https://zipper.dataspace.copernicus.eu/odata/v1/Products({file_id})/$value'
         response = self.session.get(url, headers=headers, stream=True)
-        total_size = int(response.headers.get('content-length', 0))
+        #total_size = int(response.headers.get('content-length', 0))
         block_size = 1024
-        t = tqdm(total=total_size, unit='B', unit_scale=True, desc=os.path.join(target_path, name), ascii=True)
+        #t = tqdm(total=total_size, unit='B', unit_scale=True, desc=os.path.join(target_path, name), ascii=True)
         num_retries = 0
         while num_retries < 5:
             try:
                 with tempfile.NamedTemporaryFile(suffix=".zip", delete=True) as temp_zip:
                     with open(temp_zip.name, 'wb') as f:
                         for chunk in response.iter_content(block_size):
-                            t.update(len(chunk))
+                            #t.update(len(chunk))
                             f.write(chunk)
                     self.logger.info('Extracting...')
                     with zipfile.ZipFile(temp_zip.name, 'r') as zip_ref:

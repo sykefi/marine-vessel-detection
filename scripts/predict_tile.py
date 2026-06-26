@@ -14,6 +14,13 @@ import geopandas as gpd
 import shapely
 from time import time
 
+def read_geopandas_file(fname=Path, layer=None, bbox=None):
+    "Read file depending on the suffix"
+    if fname.suffix == '.parquet':
+        return gpd.read_parquet(fname).clip(box(*bbox))
+    else:
+        return gpd.read_file(fname, bbox=bbox)
+
 def get_longer_edge(geom:shapely.geometry.Polygon) -> float:
     x, y = shapely.geometry.box(*geom.bounds).exterior.coords.xy
     edge_lengths = (shapely.geometry.Point(x[0],y[0]).distance(shapely.geometry.Point(x[1],y[1])),
@@ -27,9 +34,9 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
     tot_bounds_3067 = tuple(gdf.to_crs('EPSG:3067').total_bounds)
     start = time()
     if preset is None:
-        lakes = gpd.read_file(PATH_TO_WATERS, layer='jarvi', bbox=tot_bounds_3067).dissolve(by='kohdeluokka')
-        seas = gpd.read_file(PATH_TO_WATERS, layer='meri', bbox=tot_bounds_3067).dissolve(by='kohdeluokka')
-        rivers = gpd.read_file(PATH_TO_RIVERS, layer='virtavesialue', bbox=tot_bounds_3067).dissolve(by='kohdeluokka')
+        lakes = read_geopandas_file(PATH_TO_LAKES, layer='jarvi', bbox=tot_bounds_3067)
+        seas = read_geopandas_file(PATH_TO_SEA, layer='meri', bbox=tot_bounds_3067)
+        rivers = read_geopandas_file(PATH_TO_RIVERS, layer='virtavesialue', bbox=tot_bounds_3067)
         lakes = lakes.to_crs(gdf.crs)
         seas = seas.to_crs(gdf.crs)
         rivers = rivers.to_crs(gdf.crs)
@@ -37,15 +44,15 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
 
     # Preset for the Archipelago sea
     elif preset == 'archipelago':
-        waters = gpd.read_file(PATH_TO_ARCHI_WATERS, layer='waters')
+        waters = read_geopandas_file(PATH_TO_ARCHI_WATERS, layer='waters')
     
     # Preset for the Gulf of Finland
     elif preset == 'gof':
-        waters = gpd.read_file(PATH_TO_GOF_WATERS, layer='waters')
+        waters = read_geopandas_file(PATH_TO_GOF_WATERS, layer='waters')
 
     # Preset for test tiles
     elif preset in ['34VER', '34VEN']:
-        waters = gpd.read_file(f'{PATH_TO_MTK_DATA}/{preset}_waters.gpkg', layer='waters').to_crs(gdf.crs)
+        waters = read_geopandas_file(f'{PATH_TO_MTK_DATA}/{preset}_waters.gpkg', layer='waters').to_crs(gdf.crs)
     print('Cleaning predictions...')
 
     # Keep only predictions whose centroids are within sea, lake or a largeish river.
@@ -75,7 +82,7 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
     # Filter large rock formations from topographical database MTK-muut_22-03-03 layer `vesikivikko`
     if rem > 0:
         print('Removing predictions that are on `vesikivikko`')
-        rocks = gpd.read_file(PATH_TO_OTHER, layer='vesikivikko', bbox=tot_bounds_3067).dissolve(by='kohdeluokka')
+        rocks = read_geopandas_file(PATH_TO_ROCK_AREAS, layer='vesikivikko', bbox=tot_bounds_3067)
         rocks = rocks.to_crs(gdf.crs)
         # Keep only predictions whose centroids are not within `vesikivikko`
         joined = gpd.sjoin(gdf, rocks, predicate='within', how='inner')
@@ -94,7 +101,7 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
         if os.path.exists(PATH_TO_FISHERIES):
             print('Removing fisheries')
             # Keep only predictions whose centroids are not within fishery areas
-            fisheries = gpd.read_file(PATH_TO_FISHERIES, bbox=tot_bounds_3067).to_crs(gdf.crs)
+            fisheries = read_geopandas_file(PATH_TO_FISHERIES, bbox=tot_bounds_3067).to_crs(gdf.crs)
             joined = gpd.sjoin(gdf, fisheries, predicate='within', how='inner')
             if fps is None:
                 fps = gdf[gdf.index.isin(joined.index)].copy()
@@ -118,7 +125,7 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
     # Filter above water rocks
     if rem > 0:
         print('Removing predictions that are rocks above waterline')
-        above_water_rocks = gpd.read_file(PATH_TO_OTHER, layer='vesikivi', bbox=tot_bounds_3067).to_crs(gdf.crs)
+        above_water_rocks = read_geopandas_file(PATH_TO_ROCK_POINTS, layer='vesikivi', bbox=tot_bounds_3067).to_crs(gdf.crs)
         above_water_rocks = above_water_rocks[above_water_rocks.kohdeluokka.isin([38511,38512,38513])]
         if fps is None:
             fps = gdf.loc[(any(g.contains(above_water_rocks.geometry)) for g in gdf.geometry)].copy()
@@ -138,7 +145,7 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
     # Description: https://ava.vaylapilvi.fi/ava/Vesi/Tietokuvaus/vesivayla-aineistot_tietosisallonkuvaus.pdf
     if rem > 0:
         print('Removing predictions that are either beacons or lighthouses')
-        beacons = gpd.read_file(PATH_TO_BEACONS, tot_bounds_3067).to_crs(gdf.crs)
+        beacons = read_geopandas_file(PATH_TO_BEACONS, tot_bounds_3067).to_crs(gdf.crs)
         beacons = beacons[beacons.ty_jnr.isin([1,2,3,4,5,8])]
         if fps is None:
             fps = gdf.loc[(any(g.contains(beacons.geometry)) for g in gdf.geometry)].copy()
@@ -154,7 +161,7 @@ def clean_stationary_targets(gdf:gpd.GeoDataFrame, preset:str=None, keep_fps:boo
     if rem > 0:
         # Filter wind turbines provided there is a layer for them
         print('Removing wind turbines')
-        windmills = gpd.read_file(PATH_TO_BUILDINGS, layer='tuulivoimala', bbox=tot_bounds_3067).to_crs(gdf.crs)
+        windmills = read_geopandas_file(PATH_TO_WINDMILLS, layer='tuulivoimala', bbox=tot_bounds_3067).to_crs(gdf.crs)
         if fps is None:
             fps = gdf.loc[(any(g.contains(windmills.geometry)) for g in gdf.geometry)].copy()
             fps['class_name'] = 'windmill'
@@ -242,6 +249,8 @@ def main(yolo_weights:str, # Path to ultralytics model weights to use
                                                 overlap_height_ratio=0.2,
                                                 overlap_width_ratio=0.2,
                                                 perform_standard_pred=False,
+                                                batch_size=1,
+                                                progress_bar=False,
                                                 verbose=2)
     
 
