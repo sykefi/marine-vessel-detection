@@ -10,7 +10,7 @@ project:
     - inference.ipynb
 format:
   html:
-    theme: style/syke.scss
+    theme: syke.scss
     toc: true
     page-layout: full
     
