@@ -20,7 +20,7 @@ website:
   open-graph: true
   reader-mode: true
   repo-branch: main
-  repo-subdir: nbs
+  repo-subdir: docs
   repo-url: https://github.com/sykefi/marine-vessel-detection
   repo-actions: [source]
   navbar:
